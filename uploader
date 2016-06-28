@@ -1,0 +1,15 @@
+#!/usr/bin/env php
+<?php
+
+if (function_exists('xdebug_disable')) {
+    xdebug_disable();
+}
+
+require __DIR__ . '/vendor/autoload.php';
+
+$file = isset($argv[1]) ? $argv[1] : false;
+$url = isset($argv[2]) ? $argv[2] : false;
+$amqp = isset($argv[3]) ? $argv[3] : false;
+
+$uploader = new \App\Components\Uploader();
+$uploader->uploadProcess($file, $url, $amqp);
