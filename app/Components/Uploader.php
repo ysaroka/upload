@@ -29,8 +29,15 @@ class Uploader
      */
     public function detachUploadProcess($file, $url, $amqp)
     {
-        $command = base_path() . '/uploader';
-        exec($command . " $file $url $amqp >> /dev/null &");
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            // Windows
+            $command = 'php -f ' . base_path() . '/uploader';
+            exec('start /b ' . $command . " $file $url $amqp");
+        } else {
+            // POSIX
+            $command = 'php -f ' . base_path() . '/uploader';
+            exec($command . " $file $url $amqp >> /dev/null &");
+        }
     }
 
     /**
