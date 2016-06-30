@@ -8,6 +8,7 @@ namespace App\Components;
 
 use App\Interfaces\InterfaceFileStorage;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\Validation\Factory as ValidationFactory;
 use SplFileInfo;
 use SplFileObject;
 
@@ -26,10 +27,10 @@ class UserFileStorage implements InterfaceFileStorage
     private $validator;
 
     /**
-     * Add file validation rules
+     * File validation rules
      * @var array
      */
-    private $validationRules;
+    private $validationRules = [];
 
     /**
      * Storage manipulation errors
@@ -39,15 +40,15 @@ class UserFileStorage implements InterfaceFileStorage
 
     /**
      * UserFileStorage constructor.
-     * @param \Illuminate\Contracts\Foundation\Application $app
+     * @param string $storagePath
      * @param \Illuminate\Contracts\Validation\Factory $validator
+     * @throws \Exception
      */
-    public function __construct(Application $app, \Illuminate\Contracts\Validation\Factory $validator)
+    public function __construct($storagePath, ValidationFactory $validator)
     {
-        $this->app = $app;
-        $this->config = $app->config;
-        $this->setStoragePath($this->config->get('storage.userfile.path'));
-        $this->initValidator($validator);
+        $this->setStoragePath($storagePath);
+        $this->setValidator($validator);
+        $this->initValidator();
     }
 
     /**
@@ -59,17 +60,14 @@ class UserFileStorage implements InterfaceFileStorage
     public function addFile($tmpFilePath, $removeTmpFile = true)
     {
         $splTmpFile = new SplFileInfo($tmpFilePath);
+        $splNewFile = new SplFileInfo($this->getStoragePath() . DIRECTORY_SEPARATOR . $splTmpFile->getFilename());
 
         if ($this->validateFile($splTmpFile)) {
-            $splNewFile = new SplFileInfo($this->getStoragePath() . DIRECTORY_SEPARATOR . $splTmpFile->getFilename());
-
-            // If file already exists in storage - no need move,
-            // only return his path ($splNewFile)
-            if ($splNewFile->isFile() &&
-                strcmp(sha1_file($splNewFile->getRealPath()), sha1_file($splTmpFile->getRealPath())) === 0
+            // If file does not exist in storage (same name and sha1) - add it,
+            // else no need add, only return it path ($splNewFile)
+            if (!$splNewFile->isFile() ||
+                strcmp(sha1_file($splNewFile->getRealPath()), sha1_file($splTmpFile->getRealPath())) !== 0
             ) {
-                return $splNewFile;
-            } else {
                 // TODO:2016-06-27:Yauhen Saroka: Rebuild it in the future
                 /*
                                 // In storage is a file with the same name but with different sha1() hash
@@ -82,19 +80,21 @@ class UserFileStorage implements InterfaceFileStorage
                                 }
                 */
 
-                if (rename($splTmpFile->getRealPath(), $splNewFile)) {
-                    return $splNewFile;
-                } else {
+                if (!rename($splTmpFile->getRealPath(), $splNewFile)) {
                     $this->addError('file', 'Can not move a file ' . $splTmpFile->getRealPath() . ' to ' . $splNewFile->getRealPath());
                 }
             }
         }
 
-        if ($removeTmpFile && is_file($tmpFilePath)) {
-            @unlink($tmpFilePath);
+        if ($removeTmpFile && $splTmpFile->isFile()) {
+            @unlink($splTmpFile->getRealPath());
         }
 
-        return false;
+        if (!$this->hasErrors()) {
+            return $splNewFile;
+        } else {
+            return false;
+        }
     }
 
     /**
@@ -186,8 +186,6 @@ class UserFileStorage implements InterfaceFileStorage
     public function validateFile($splFile)
     {
         if ($splFile->isFile()) {
-            $this->resetErrors();
-
             $validator = $this->getValidator()->make([
                 'file' => $splFile,
             ], [
@@ -212,34 +210,33 @@ class UserFileStorage implements InterfaceFileStorage
 
     /**
      * Initialize add file validator
-     * @param \Illuminate\Contracts\Validation\Factory $validator
      */
-    public function initValidator($validator)
+    public function initValidator()
     {
-        $this->validator = $validator;
+        $validator = $this->getValidator();
 
-        $configRules = $this->config->get('storage.userfile.validation');
-        $rules = [];
+        $configRules = $this->getValidationRules();
+        $parseRules = [];
 
         if (is_array($configRules)) {
             foreach ($configRules as $rule) {
                 if (isset($rule['extension'])) {
                     $ext = $rule['extension'];
                     unset($rule['extension']);
-                    $rules[$ext][] = $rule;
+                    $parseRules[$ext][] = $rule;
                 }
             }
         }
 
-        $this->validator->extend('extension_allowed', function ($attribute, $splFileObject, $parameters, $validator) use ($rules) {
+        $validator->extend('extension_allowed', function ($attribute, $splFileObject, $parameters, $validator) use ($parseRules) {
             /* @var \SplFileObject $splFileObject */
-            return isset($rules[$splFileObject->getExtension()]);
+            return isset($parseRules[$splFileObject->getExtension()]);
         });
 
-        $this->validator->extend('max_size_allowed', function ($attribute, $splFileObject, $parameters, $validator) use ($rules) {
+        $validator->extend('max_size_allowed', function ($attribute, $splFileObject, $parameters, $validator) use ($parseRules) {
             /* @var \SplFileObject $splFileObject */
-            if (isset($rules[$splFileObject->getExtension()])) {
-                foreach ($rules[$splFileObject->getExtension()] as $criteria) {
+            if (isset($parseRules[$splFileObject->getExtension()])) {
+                foreach ($parseRules[$splFileObject->getExtension()] as $criteria) {
                     if (isset($criteria['max_size']) &&
                         $splFileObject->getSize() > $criteria['max_size']
                     ) {
@@ -251,10 +248,10 @@ class UserFileStorage implements InterfaceFileStorage
             return true;
         });
 
-        $this->validator->extend('stopwords_allowed', function ($attribute, $splFileObject, $parameters, $validator) use ($rules) {
+        $validator->extend('stopwords_allowed', function ($attribute, $splFileObject, $parameters, $validator) use ($parseRules) {
             /* @var \SplFileObject $splFileObject */
-            if (isset($rules[$splFileObject->getExtension()])) {
-                foreach ($rules[$splFileObject->getExtension()] as $criteria) {
+            if (isset($parseRules[$splFileObject->getExtension()])) {
+                foreach ($parseRules[$splFileObject->getExtension()] as $criteria) {
                     if (isset($criteria['stopwords'])
                     ) {
                         $phrases = explode(',', $criteria['stopwords']);
@@ -279,6 +276,17 @@ class UserFileStorage implements InterfaceFileStorage
         });
     }
 
+    public function setValidationRules($rules)
+    {
+        $this->validationRules = $rules;
+        $this->initValidator();
+    }
+
+    public function getValidationRules()
+    {
+        return $this->validationRules;
+    }
+
     /**
      * Get validator object
      * @return \Illuminate\Contracts\Validation\Factory
@@ -286,5 +294,14 @@ class UserFileStorage implements InterfaceFileStorage
     public function getValidator()
     {
         return $this->validator;
+    }
+
+    /**
+     * Set vaidator object
+     * @param \Illuminate\Contracts\Validation\Factory $validator
+     */
+    public function setValidator($validator)
+    {
+        $this->validator = $validator;
     }
 }
