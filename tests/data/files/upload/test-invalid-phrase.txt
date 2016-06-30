@@ -1,0 +1,6 @@
+Invalid phrase file.
+
+invalid 
+third phrase
+
+Invalid phrase file.
