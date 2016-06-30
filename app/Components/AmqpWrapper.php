@@ -43,9 +43,8 @@ class AmqpWrapper
     public function __construct(AMQPStreamConnection $amqpConnection, AMQPMessage $amqpMessage)
     {
         $this->amqpConnection = $amqpConnection;
-        $this->reconnect();
+        $this->channel = $this->amqpConnection->channel();
         $this->amqpMessage = $amqpMessage;
-        $this->channel = $amqpConnection->channel();
     }
 
     /**
@@ -91,6 +90,8 @@ class AmqpWrapper
     {
         if (!$this->amqpConnection->isConnected()) {
             $this->amqpConnection->reconnect();
+            $this->channel = $this->amqpConnection->channel();
+            $this->declaredQueues = [];
         }
     }
 

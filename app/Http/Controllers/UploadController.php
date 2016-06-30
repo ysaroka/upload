@@ -54,6 +54,8 @@ class UploadController extends Controller
 
     public function anyUpload(InterfaceFileStorage $userFileStorage, AmqpWrapper $amqpWrapper, Server $server, UploadEntity $uploadEntity)
     {
+        /* @var \App\Components\UserFileStorage $userFileStorage */
+
         $responseVariables = [
             'uploadStatus' => false,
             'storageErrors' => [],
@@ -71,6 +73,7 @@ class UploadController extends Controller
                 $this->request->file('file')->getClientOriginalName()
             );
 
+            $userFileStorage->setValidationRules($this->config->get('storage.userfile.validation'));
             $newStorageFile = $userFileStorage->addFile($tmpFilePath);
 
             if ($newStorageFile && !$userFileStorage->hasErrors()) {
@@ -104,7 +107,8 @@ class UploadController extends Controller
             }
         }
 
-        $responseVariables['uploadEntities'] = $uploadEntity->limit(self::UPLOAD_ENTITIES_LIMIT)->orderBy('created_at', 'DESC')->get();
+        $responseVariables['uploadEntities'] = $uploadEntity->limit(self::UPLOAD_ENTITIES_LIMIT)
+                                                            ->orderBy('created_at', 'DESC')->get();
 
         return $this->view->make('upload.index', $responseVariables);
     }

@@ -157,7 +157,6 @@ class DaemonUploader extends Command
         try {
             $amqpReceiver = $this->getAmqpReceiver();
 
-            // TODO:2016-06-26:Yauhen Saroka: Проверить, что при разрыве amqp сервера декларация очередей будет работать, скорее всего нет
             $amqpReceiver->queueAddListener($this->config->get('amqp.queues.uploader.upload'), [
                 $this,
                 'onAMQPUploadMessage',

@@ -18,7 +18,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-        $this->app->bind(InterfaceFileStorage::class, UserFileStorage::class);
+        $this->app->bind(InterfaceFileStorage::class, function ($app) {
+            return $app->make(UserFileStorage::class, ['storagePath' => $app->config->get('storage.userfile.path')]);
+        });
+
 
         $this->app->singleton(AMQPStreamConnection::class, function ($app) {
             return new AMQPStreamConnection(

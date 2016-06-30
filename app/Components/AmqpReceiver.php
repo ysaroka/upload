@@ -37,8 +37,7 @@ class AmqpReceiver
     public function __construct(AMQPStreamConnection $amqpConnection, AMQPMessage $amqpMessage)
     {
         $this->amqpConnection = $amqpConnection;
-        $this->reconnect();
-        $this->channel = $amqpConnection->channel();
+        $this->channel = $this->amqpConnection->channel();
     }
 
     /**
@@ -90,6 +89,8 @@ class AmqpReceiver
     {
         if (!$this->amqpConnection->isConnected()) {
             $this->amqpConnection->reconnect();
+            $this->channel = $this->amqpConnection->channel();
+            $this->declaredQueues = [];
         }
     }
 
