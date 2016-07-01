@@ -61,7 +61,7 @@ class DaemonWebsockets extends Command implements MessageComponentInterface
         $this->logger = $logger;
         $this->config = $config;
 
-        $this->clients = new \SplObjectStorage;
+        $this->clients = new \SplObjectStorage();
     }
 
     /**
