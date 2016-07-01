@@ -48,8 +48,8 @@ class TestCase extends Illuminate\Foundation\Testing\TestCase
 
         $app->singleton(AmqpWrapper::class, function ($app) {
             $amqpWrapperMock = $this->getMockBuilder(AmqpWrapper::class)
-                                   ->disableOriginalConstructor()
-                                   ->getMock();
+                                    ->disableOriginalConstructor()
+                                    ->getMock();
 
             return $amqpWrapperMock;
         });
@@ -58,10 +58,7 @@ class TestCase extends Illuminate\Foundation\Testing\TestCase
             /* @var \App\Components\UserFileStorage $userFileStorageMock */
             $userFileStorageMock = $this->getMockBuilder(UserFileStorage::class)
                                         ->setMethods(['getValidationRules'])
-                                        ->setConstructorArgs([
-                                            $this->testsDir . '/data/files/storage',
-                                            $this->app->make(\Illuminate\Contracts\Validation\Factory::class),
-                                        ])
+                                        ->disableOriginalConstructor()
                                         ->getMock();
 
             $userFileStorageMock->expects($this->any())
@@ -78,6 +75,10 @@ class TestCase extends Illuminate\Foundation\Testing\TestCase
                                         'stopwords' => 'invalid second phrase, invalid third phrase',
                                     ],
                                 ]));
+
+            $userFileStorageMock->setStoragePath($this->testsDir . '/data/files/storage');
+            $userFileStorageMock->setValidator($this->app->make(\Illuminate\Contracts\Validation\Factory::class));
+            $userFileStorageMock->initValidator();
 
             return $userFileStorageMock;
         });
