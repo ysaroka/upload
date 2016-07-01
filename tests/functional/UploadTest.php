@@ -22,7 +22,6 @@ class UploadTest extends TestCase
      */
     private $storageDir;
 
-
     public function setUp()
     {
         parent::setUp();
@@ -43,15 +42,12 @@ class UploadTest extends TestCase
     }
 
     /**
-     * A basic functional test example.
+     * File upload validation test
      *
      * @return void
      */
     public function testUploadValidation()
     {
-        File::deleteDirectory($this->tmpDir);
-        File::copyDirectory($this->testsDir . '/data/files/upload', $this->tmpDir);
-
         // Upload file with not allowed large size
         $this->makeRequest('POST', route('upload'), [], [], [
             'file' => new Symfony\Component\HttpFoundation\File\UploadedFile(
@@ -90,21 +86,24 @@ class UploadTest extends TestCase
             ),
         ])
              ->see('file contains forbidden words');
-
-        File::deleteDirectory($this->tmpDir);
     }
 
+    /**
+     * Upload valid file to storage test
+     */
     public function testUploadValidFileToStorage()
     {
         // Upload valid file
-        $this->makeRequest('POST', route('upload'), [], [], ['file' => new Symfony\Component\HttpFoundation\File\UploadedFile(
-            realpath($this->tmpDir . '/test-valid.txt'),
-            'test-valid.txt',
-            'text/plain',
-            null,
-            null,
-            true
-        )]);
+        $this->makeRequest('POST', route('upload'), [], [], [
+            'file' => new Symfony\Component\HttpFoundation\File\UploadedFile(
+                realpath($this->tmpDir . '/test-valid.txt'),
+                'test-valid.txt',
+                'text/plain',
+                null,
+                null,
+                true
+            ),
+        ]);
 
         // Checking whether a file exists in storage
         $this->assertTrue(file_exists($this->storageDir . '/test-valid.txt'));
